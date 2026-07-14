@@ -52,8 +52,23 @@ def calculate_shielding_factor(angle_deg, shield_type):
     return 1.0
 
 def calculate_limiting_magnitude(total_luminance):
-    return 7.93 - 5 * np.log10(10**(-0.4 * (total_luminance * 1e6)) + 1)
-
+    """
+    Converts sky luminance (cd/m²) to Magnitudes per Square Arcsecond (MPSAS),
+    and then calculates the true Naked-Eye Limiting Magnitude (NELM).
+    """
+    # Prevent division by zero or negative values
+    total_luminance = max(1e-9, total_luminance)
+    
+    # 1. Convert cd/m² to MPSAS (standard astronomical scale)
+    # Formula: mpsas = log10(cd/m² / 108000) / -0.4
+    mpsas = np.log10(total_luminance / 108000.0) / -0.4
+    
+    # 2. Convert MPSAS to Naked-Eye Limiting Magnitude (NELM) using the Garstang model
+    # Under pristine dark skies (MPSAS ~ 22), NELM is ~6.8.
+    # In bright cities (MPSAS ~ 18), NELM drops down to ~3.0 or less.
+    nelm = 7.93 - 5 * np.log10(10**(0.4 * (21.57 - mpsas)) + 1)
+    
+    return nelm
 # Computation
 wavelength = WAVELENGTHS[lamp_type]
 rayleigh = calculate_rayleigh_coefficient(wavelength)
@@ -74,11 +89,8 @@ with col1:
     st.metric(label="Calculated Sky Luminance", value=f"{total_luminance:.6f} cd/m²")
     st.info(f"**Naked-Eye Limiting Magnitude:** Stars up to magnitude **{limiting_mag:.2f}** are visible.")
 with col2:
-    # --- ADJUST LUMINANCE SCALE FOR REALISTIC EXTINCTION ---
-    # We apply a scaling multiplier so the physical input range of lamps (100 - 50000)
-    # realistically degrades the limiting magnitude from ~6.5 down to ~2.0.
-    scaled_artificial_luminance = artificial_luminance * 5000
-    total_luminance = NATURAL_SKY_LUMINANCE + scaled_artificial_luminance
+    # --- CALCULATE TRUE LIMITING MAGNITUDE ---
+    # The new function directly takes our real-world total_luminance and outputs the correct NELM
     limiting_mag = calculate_limiting_magnitude(total_luminance)
 
     # --- INITIALIZE STABLE STARFIELD (Only once per session) ---
@@ -91,9 +103,14 @@ with col2:
         st.session_state.star_mags = np.random.power(3.5, num_stars) * 7.0 
 
     # Retrieve persistent star data
-    star_x = st.session_state.star_x
-    star_y = st.session_state.star_y
-    star_mags = st.session_state.star_mags
+    star_x = st.session_state.star_state_x if 'star_state_x' in st.session_state else st.session_state.star_x
+    star_y = st.session_state.star_state_y if 'star_state_y' in st.session_state else st.session_state.star_y
+    star_mags = st.session_state.star_state_mags if 'star_state_mags' in st.session_state else st.session_state.star_mags
+
+    # Save to session state to prevent regeneration
+    st.session_state.star_state_x = star_x
+    st.session_state.star_state_y = star_y
+    st.session_state.star_state_mags = star_mags
 
     # --- RENDER SIMULATED STAR-FIELD LOSS ---
     fig, ax = plt.subplots(figsize=(6, 6))
@@ -101,6 +118,7 @@ with col2:
     # Dynamically change the sky background color based on skyglow intensity!
     # Pristine sky is near pitch black; heavily polluted sky turns a washed-out dark grey/blue.
     sky_brightness_factor = min(1.0, (total_luminance - NATURAL_SKY_LUMINANCE) / 0.05)
+    
     # Blends from deep dark space to a hazy skyglow color
     bg_red = 14 / 255 + (sky_brightness_factor * 0.1)
     bg_green = 17 / 255 + (sky_brightness_factor * 0.15)
