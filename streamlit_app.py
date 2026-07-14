@@ -54,19 +54,19 @@ def calculate_shielding_factor(angle_deg, shield_type):
 def calculate_limiting_magnitude(total_luminance):
     """
     Converts sky luminance (cd/m²) to Magnitudes per Square Arcsecond (MPSAS),
-    and then calculates the true Naked-Eye Limiting Magnitude (NELM).
+    and then calculates the true Naked-Eye Limiting Magnitude (NELM) using the
+    Carlin (1990) formulation of the Garstang model.
     """
-    # Prevent division by zero or negative values
     total_luminance = max(1e-9, total_luminance)
     
-    # 1. Convert cd/m² to MPSAS (standard astronomical scale)
+    # 1. Convert cd/m² to MPSAS
     # Formula: mpsas = log10(cd/m² / 108000) / -0.4
     mpsas = np.log10(total_luminance / 108000.0) / -0.4
     
-    # 2. Convert MPSAS to Naked-Eye Limiting Magnitude (NELM) using the Garstang model
-    # Under pristine dark skies (MPSAS ~ 22), NELM is ~6.8.
-    # In bright cities (MPSAS ~ 18), NELM drops down to ~3.0 or less.
-    nelm = 7.93 - 5 * np.log10(10**(0.4 * (21.57 - mpsas)) + 1)
+    # 2. Convert MPSAS to Naked-Eye Limiting Magnitude (NELM)
+    # FIX: Corrected coefficient from 0.4 to 0.2 to match Carlin's derivation:
+    # 10^(0.2 * (21.58 - mpsas))
+    nelm = 7.93 - 5 * np.log10(10**(0.2 * (21.58 - mpsas)) + 1)
     
     return nelm
 # Computation
