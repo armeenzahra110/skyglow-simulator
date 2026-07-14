@@ -61,7 +61,8 @@ mie = calculate_mie_coefficient(aerosol_level)
 total_scattering = (rayleigh * 0.7) + (mie * 0.3)
 
 angles = np.linspace(0, 90, 100)
-escaped_light = np.trapz([calculate_shielding_factor(a, shield_type) for a in angles], np.radians(angles))
+trapz_func = getattr(np, 'trapezoid', getattr(np, 'trapz', None))
+escaped_light = trapz_func([calculate_shielding_factor(a, shield_type) for a in angles], np.radians(angles))
 artificial_luminance = num_lamps * 1.5e-7 * total_scattering * escaped_light
 total_luminance = NATURAL_SKY_LUMINANCE + artificial_luminance
 limiting_mag = calculate_limiting_magnitude(total_luminance)
