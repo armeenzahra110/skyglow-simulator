@@ -75,25 +75,38 @@ with col1:
     st.info(f"**Naked-Eye Limiting Magnitude:** Stars up to magnitude **{limiting_mag:.2f}** are visible.")
 
 with col2:
-    # Render simulated star-field loss
+    # --- INITIALIZE STABLE STARFIELD (Only once per session) ---
+    if 'star_x' not in st.session_state:
+        np.random.seed(42)  # Secure a fixed seed
+        num_stars = 300     # Slightly more stars for a richer sky
+        st.session_state.star_x = np.random.rand(num_stars) * 10
+        st.session_state.star_y = np.random.rand(num_stars) * 10
+        st.session_state.star_mags = np.random.rand(num_stars) * 7.0  # Magnitudes 0.0 to 7.0
+
+    # Retrieve persistent star data
+    star_x = st.session_state.star_x
+    star_y = st.session_state.star_y
+    star_mags = st.session_state.star_mags
+
+    # --- RENDER SIMULATED STAR-FIELD LOSS ---
     fig, ax = plt.subplots(figsize=(6, 6))
     fig.patch.set_facecolor('#0E1117')
     ax.set_facecolor('#0E1117')
-    
-    # Generate artificial star fields
-    np.random.seed(42)
-    num_stars = 200
-    star_x = np.random.rand(num_stars) * 10
-    star_y = np.random.rand(num_stars) * 10
-    star_mags = np.random.rand(num_stars) * 7.0  # Magnitudes 0 to 7
-    
-    # Only draw stars brighter than current limiting magnitude
-    visible_stars = star_mags < limiting_mag
-    sizes = (7.0 - star_mags[visible_stars]) ** 2.5
-    
-    ax.scatter(star_x[visible_stars], star_y[visible_stars], s=sizes, color='white', alpha=0.9)
+
+    # Only draw stars that are physically brighter than the current limiting magnitude
+    visible_mask = star_mags < limiting_mag
+    visible_x = star_x[visible_mask]
+    visible_y = star_y[visible_mask]
+    visible_mags = star_mags[visible_mask]
+
+    # Calculate realistic visual sizes (brighter stars are larger)
+    sizes = (7.0 - visible_mags) ** 2.5
+
+    # Render the persistent sky
+    ax.scatter(visible_x, visible_y, s=sizes, color='white', alpha=0.9, edgecolors='none')
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 10)
     ax.axis('off')
+
     st.pyplot(fig)
-    st.caption("Simulated sky view: As light pollution rises, faint stars dynamically disappear.")
+    st.caption(f"Simulated sky view: Showing {sum(visible_mask)} out of 300 stars. Fainter stars systematically drop out as limiting magnitude worsens.")
